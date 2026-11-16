@@ -1,0 +1,225 @@
+
+-- CART3R.JAILBREAK
+-- ADMIN DEBUG PANEL V1.0
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- CONFIGURATION
+local ADMIN_USER_IDS = {
+    123456789, -- Replace with your Roblox UserId
+}
+
+local UPDATE_INTERVAL = 0.25
+
+local function isAdmin()
+    return table.find(ADMIN_USER_IDS, LocalPlayer.UserId) ~= nil
+end
+
+if not isAdmin() then
+    return
+end
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "CART3R_AdminPanel"
+gui.ResetOnSpawn = false
+gui.Parent = PlayerGui
+
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(330, 400)
+main.Position = UDim2.new(1, -350, 0, 100)
+main.BackgroundColor3 = Color3.fromRGB(15, 10, 13)
+main.BorderSizePixel = 0
+main.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = main
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(190, 25, 50)
+stroke.Thickness = 2
+stroke.Parent = main
+
+-- HEADER
+local header = Instance.new("TextLabel")
+header.Size = UDim2.new(1, 0, 0, 50)
+header.BackgroundColor3 = Color3.fromRGB(65, 10, 22)
+header.Text = "CART3R ADMIN PANEL"
+header.TextColor3 = Color3.new(1, 1, 1)
+header.Font = Enum.Font.GothamBold
+header.TextSize = 17
+header.Parent = main
+
+-- PLAYER COUNT
+local count = Instance.new("TextLabel")
+count.Position = UDim2.fromOffset(10, 55)
+count.Size = UDim2.new(1, -20, 0, 25)
+count.BackgroundTransparency = 1
+count.TextColor3 = Color3.fromRGB(220, 220, 220)
+count.Text = "Players: 0"
+count.Font = Enum.Font.Gotham
+count.TextSize = 13
+count.TextXAlignment = Enum.TextXAlignment.Left
+count.Parent = main
+
+-- SCROLLING LIST
+local list = Instance.new("ScrollingFrame")
+list.Position = UDim2.fromOffset(10, 85)
+list.Size = UDim2.new(1, -20, 1, -100)
+list.BackgroundTransparency = 1
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 4
+list.Parent = main
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 7)
+layout.SortOrder = Enum.SortOrder.Name
+layout.Parent = list
+
+local cards = {}
+
+local function teamColor(player)
+    if player.Team then
+        return player.Team.TeamColor.Color
+    end
+    return Color3.fromRGB(255, 75, 75)
+end
+
+local function createCard(player)
+    local card = Instance.new("Frame")
+    card.Name = player.Name
+    card.Size = UDim2.new(1, -8, 0, 85)
+    card.BackgroundColor3 = Color3.fromRGB(30, 22, 27)
+    card.BorderSizePixel = 0
+    card.Parent = list
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 7)
+    c.Parent = card
+
+    local name = Instance.new("TextLabel")
+    name.Position = UDim2.fromOffset(10, 5)
+    name.Size = UDim2.new(1, -20, 0, 22)
+    name.BackgroundTransparency = 1
+    name.Font = Enum.Font.GothamBold
+    name.TextSize = 14
+    name.TextXAlignment = Enum.TextXAlignment.Left
+    name.TextColor3 = teamColor(player)
+    name.Text = player.DisplayName
+    name.Parent = card
+
+    local distance = Instance.new("TextLabel")
+    distance.Position = UDim2.fromOffset(10, 29)
+    distance.Size = UDim2.new(1, -20, 0, 18)
+    distance.BackgroundTransparency = 1
+    distance.Font = Enum.Font.Gotham
+    distance.TextSize = 12
+    distance.TextColor3 = Color3.new(1, 1, 1)
+    distance.TextXAlignment = Enum.TextXAlignment.Left
+    distance.Parent = card
+
+    local healthBackground = Instance.new("Frame")
+    healthBackground.Position = UDim2.fromOffset(10, 57)
+    healthBackground.Size = UDim2.new(1, -20, 0, 12)
+    healthBackground.BackgroundColor3 = Color3.fromRGB(65, 55, 60)
+    healthBackground.BorderSizePixel = 0
+    healthBackground.Parent = card
+
+    local healthBar = Instance.new("Frame")
+    healthBar.Size = UDim2.fromScale(1, 1)
+    healthBar.BackgroundColor3 = Color3.fromRGB(50, 220, 100)
+    healthBar.BorderSizePixel = 0
+    healthBar.Parent = healthBackground
+
+    cards[player] = {
+        card = card,
+        name = name,
+        distance = distance,
+        health = healthBar,
+    }
+end
+
+local function removeCard(player)
+    local data = cards[player]
+    if data then
+        data.card:Destroy()
+        cards[player] = nil
+    end
+end
+
+local function refresh()
+    local character = LocalPlayer.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+
+    local total = 0
+
+    for _, player in Players:GetPlayers() do
+        total += 1
+
+        if not cards[player] then
+            createCard(player)
+        end
+
+        local data = cards[player]
+        local target = player.Character
+        local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+        local humanoid = target and target:FindFirstChildOfClass("Humanoid")
+
+        data.name.Text = player.DisplayName
+        data.name.TextColor3 = teamColor(player)
+
+        if root and targetRoot then
+            local dist = (root.Position - targetRoot.Position).Magnitude
+            data.distance.Text = "Distance: " .. math.floor(dist) .. " studs"
+        else
+            data.distance.Text = "Distance: N/A"
+        end
+
+        if humanoid and humanoid.MaxHealth > 0 then
+            local ratio = math.clamp(
+                humanoid.Health / humanoid.MaxHealth, 0, 1
+            )
+
+            data.health.Size = UDim2.fromScale(ratio, 1)
+            data.health.BackgroundColor3 =
+                Color3.fromRGB(220, 60, 60):Lerp(
+                    Color3.fromRGB(50, 220, 100), ratio
+                )
+        else
+            data.health.Size = UDim2.fromScale(0, 1)
+        end
+    end
+
+    for player in pairs(cards) do
+        if player.Parent ~= Players then
+            removeCard(player)
+        end
+    end
+
+    count.Text = "Players: " .. total
+    list.CanvasSize = UDim2.fromOffset(
+        0, layout.AbsoluteContentSize.Y + 10
+    )
+end
+
+Players.PlayerRemoving:Connect(removeCard)
+
+local elapsed = 0
+
+RunService.Heartbeat:Connect(function(dt)
+    elapsed += dt
+
+    if elapsed >= UPDATE_INTERVAL then
+        elapsed = 0
+        refresh()
+    end
+end)
+
+refresh()
+
+print("[CART3R] ADMIN PANEL V1.0 LOADED")
